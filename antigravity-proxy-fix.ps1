@@ -12,8 +12,9 @@
 .PARAMETER ProxyPort
   指定代理端口。不传则自动探测：
     1) 读取系统代理设置（ProxyServer）
-    2) 依次测试常见端口(7890/7897/7891/10809/10808/1080/8888/2080)，
-       用 curl 经该代理访问 oauth2.googleapis.com，能返回 HTTP 状态码即视为可用。
+    2) 依次测试常见端口(7890/7897/7899/7891/10809/10808/10811/1080/8888/2080)，
+       用 curl 经该代理访问 oauth2.googleapis.com，curl 退出码为 0 且返回真实
+       HTTP 状态码(非 000)才视为可用。
 
 .PARAMETER ProbeOnly
   只探测并打印结果，不修改任何东西（用于先看看再决定）。
@@ -70,10 +71,15 @@ function Find-Antigravity {
 # ---------- 2) 探测代理端口 ----------
 function Test-ProxyPort($port) {
   if (-not $port) { return $false }
-  # 用 curl 经代理访问 Google，能返回任意 HTTP 状态码 => 代理可用（能穿透到 Google）
+  # 用 curl 经代理访问 Google，能返回真实 HTTP 状态码 => 代理可用（能穿透到 Google）。
+  # 必须同时检查 curl 退出码：连接失败时 -w 也会输出 000，若只看状态码，
+  # 死端口会被误判可用，导致端口扫描永远停在第一个端口(7890)上。
   $u = 'https://oauth2.googleapis.com/'
-  $code = ((& curl.exe -x "http://127.0.0.1:$port" -s -o NUL -m 12 -w '%{http_code}' $u) 2>$null)
-  if ($code -match '^\d{3}$') { return $true }   # 200/301/302/404... 都算通
+  try {
+    $out = & curl.exe -x "http://127.0.0.1:$port" -s -o NUL --connect-timeout 4 -m 12 -w '%{http_code}' $u 2>$null
+  } catch { return $false }   # $ErrorActionPreference=Stop 下 native 命令写 stderr 会变成终止错误
+  $code = [string]($out -join '')
+  if ($LASTEXITCODE -eq 0 -and $code -match '^[1-9]\d{2}$') { return $true }   # 200/301/302/404... 都算通，000=没连上
   return $false
 }
 
@@ -90,7 +96,7 @@ function Find-ProxyPort {
     }
   } catch {}
 
-  foreach ($p in @(7890,7897,7891,10809,10808,1080,8888,2080)) {
+  foreach ($p in @(7890,7897,7899,7891,10809,10808,10811,1080,8888,2080)) {
     if (Test-ProxyPort $p) { Step "发现可用代理端口 $p"; return $p }
   }
   return $null
