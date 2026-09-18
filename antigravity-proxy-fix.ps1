@@ -32,6 +32,7 @@ param(
   [switch]$ProbeOnly,
   [switch]$SkipRelaunch
 )
+$ScriptVersion = '1.1.0'
 $ErrorActionPreference = 'Stop'
 
 function Step($m){ Write-Host "[*] $m" -ForegroundColor Cyan }
@@ -188,7 +189,7 @@ function Install-Shortcut($dir, $name, $target, $icon) {
 
 # ================= 主流程 =================
 Write-Host "============================================" -ForegroundColor DarkCyan
-Write-Host " Antigravity 黑屏修复 (自动走代理)" -ForegroundColor DarkCyan
+Write-Host " Antigravity 黑屏修复 (自动走代理) v$ScriptVersion" -ForegroundColor DarkCyan
 Write-Host "============================================" -ForegroundColor DarkCyan
 
 $exe = Find-Antigravity

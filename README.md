@@ -1,5 +1,7 @@
 # Antigravity 黑屏修复（自动走代理）
 
+当前版本：`1.1.0`
+
 > 一键修复 Antigravity（Google Gemini 编码工具）启动后**窗口黑屏 / 空白**的问题。
 > 自动定位 Antigravity 安装位置、自动探测本地代理端口，生成走代理的启动器并把快捷方式指过去，之后双击图标即可正常打开。
 
@@ -26,7 +28,7 @@ Antigravity 的语言服务器（一个 Go 编写的后端程序）**不读取 W
 
 在 [Releases](../../releases) 页面下载最新版 `antigravity-proxy-fix.zip`：
 
-1. 解压 zip（里面是 `fix-antigravity.cmd` + `antigravity-proxy-fix.ps1` + 本 README）；
+1. 解压 zip（里面是 `fix-antigravity.cmd`、`antigravity-proxy-fix.ps1`、`VERSION`、本 README 和 LICENSE）；
 2. 双击 **`fix-antigravity.cmd`**；
 3. 按提示按任意键，脚本会自动定位 Antigravity、探测代理端口并完成修复。
 
@@ -110,6 +112,7 @@ antigravity-proxy-fix/
 ├── README.md                     # 本文档
 ├── antigravity-proxy-fix.ps1     # 主脚本（PowerShell，UTF-8 with BOM）
 ├── fix-antigravity.cmd           # 鼠标双击入口（包装调用主脚本）
+├── VERSION                       # 当前版本号
 ├── LICENSE                       # MIT 许可证
 └── release/                      # GitHub Releases 产物
     └── antigravity-proxy-fix.zip # 解压后双击 fix-antigravity.cmd 即可
