@@ -42,26 +42,36 @@ function Err($m){ Write-Host "[x] $m" -ForegroundColor Red }
 # ---------- 1) 定位 Antigravity.exe ----------
 function Find-Antigravity {
   $cands = New-Object System.Collections.Generic.List[string]
-  $cands.Add((Join-Path $env:LOCALAPPDATA 'Programs\antigravity\Antigravity.exe'))
+  if ($env:LOCALAPPDATA) {
+    $cands.Add((Join-Path $env:LOCALAPPDATA 'Programs\antigravity\Antigravity.exe'))
+  }
 
   foreach ($root in @('HKLM:\Software\Microsoft\Windows\CurrentVersion\Uninstall\*',
                       'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\*')) {
     Get-ItemProperty $root -ErrorAction SilentlyContinue |
       Where-Object { $_.DisplayName -match 'antigravity' } |
       ForEach-Object {
-        if ($_.DisplayIcon -and $_.DisplayIcon -match '^(.+?\.exe)') {
-          $cands.Add($Matches[1])
+        if ($_.DisplayIcon) {
+          # Expand REG_SZ variables too; remove only the trailing icon index.
+          # Matching the first .exe truncates paths with .exe in a parent folder.
+          $ico = [Environment]::ExpandEnvironmentVariables([string]$_.DisplayIcon).Trim()
+          $ico = ($ico -replace ',\s*-?\d+\s*$', '').Trim().Trim('"')
+          if ($ico -match '\.exe$') { $cands.Add($ico) }
         }
-        if ($_.InstallLocation) { $cands.Add((Join-Path $_.InstallLocation 'Antigravity.exe')) }
+        if ($_.InstallLocation) {
+          $location = [Environment]::ExpandEnvironmentVariables([string]$_.InstallLocation).Trim().Trim('"')
+          if ($location) { $cands.Add((Join-Path $location 'Antigravity.exe')) }
+        }
       }
   }
-  foreach ($p in $cands) { if ($p -and (Test-Path -LiteralPath $p)) { return (Resolve-Path -LiteralPath $p).Path } }
+  foreach ($p in $cands) { if ($p -and (Test-Path -LiteralPath $p -PathType Leaf)) { return (Resolve-Path -LiteralPath $p).Path } }
 
-  foreach ($base in @("$env:LOCALAPPDATA\Programs", "$env:ProgramFiles", "${env:ProgramFiles(x86)}")) {
+  $localPrograms = if ($env:LOCALAPPDATA) { Join-Path $env:LOCALAPPDATA 'Programs' } else { $null }
+  foreach ($base in @($localPrograms, $env:ProgramFiles, ${env:ProgramFiles(x86)})) {
     if ($base) {
-      $hit = Get-ChildItem -Path $base -Directory -Filter 'antigravity*' -ErrorAction SilentlyContinue |
+      $hit = Get-ChildItem -LiteralPath $base -Directory -Filter 'antigravity*' -ErrorAction SilentlyContinue |
              ForEach-Object { Join-Path $_.FullName 'Antigravity.exe' } |
-             Where-Object { Test-Path -LiteralPath $_ } | Select-Object -First 1
+             Where-Object { Test-Path -LiteralPath $_ -PathType Leaf } | Select-Object -First 1
       if ($hit) { return $hit }
     }
   }
@@ -103,16 +113,26 @@ function Find-ProxyPort {
 }
 
 # ---------- 3) 生成启动器 ----------
-function New-Launcher($exeDir, $port) {
+function New-Launcher($exe, $port) {
+  $exeDir   = Split-Path $exe
   $launcher = Join-Path $exeDir 'launch-antigravity.bat'
-  $bat = @"
-@echo off
-rem Antigravity launcher - forces the LS (Go) backend through the local proxy.
-set HTTP_PROXY=http://127.0.0.1:$port
-set HTTPS_PROXY=http://127.0.0.1:$port
-set ALL_PROXY=http://127.0.0.1:$port
-start "" "$exeDir\Antigravity.exe"
-"@
+
+  # 用 %~dp0（启动器自己所在目录）来定位 Antigravity.exe，而不是把绝对路径写进 .bat：
+  # cmd.exe 是按控制台代码页读 .bat 的，路径里一旦有中文（如 C:\Users\张三\...），
+  # 写进文件时非 ASCII 字符就会变成 "?"，start 找不到 exe，中文用户名下修复因此失效。
+  # 同理，.bat 内容必须保持全 ASCII(%~dp0 只在运行时展开，与用户名无关)。
+  $leaf = Split-Path $exe -Leaf
+  if ($leaf -notmatch '^[\x20-\x7E]+$') { $leaf = 'Antigravity.exe' }
+
+  $bat = @(
+    '@echo off'
+    'rem Antigravity launcher - forces the LS (Go) backend through the local proxy.'
+    "set HTTP_PROXY=http://127.0.0.1:$port"
+    "set HTTPS_PROXY=http://127.0.0.1:$port"
+    "set ALL_PROXY=http://127.0.0.1:$port"
+    ('start "" "%~dp0' + $leaf + '"')
+  )
+  # 传数组给 Set-Content：按 CRLF 逐行写，省得 .bat 变成 LF 换行
   Set-Content -LiteralPath $launcher -Value $bat -Encoding ASCII
   return $launcher
 }
@@ -142,6 +162,30 @@ function Create-Shortcut($lnkPath, $target, $icon) {
   } catch { Warn "无法创建快捷方式 $lnkPath : $_" }
 }
 
+# 桌面 / 开始菜单用了「重定向」（常见于 OneDrive 备份、中文用户名、企业策略），
+# 固定拼 $env:USERPROFILE\Desktop 会拿到不存在的目录；这里统一问 shell 本身要路径，
+# 拿不到就返回 $null，由调用方跳过而不是崩在中途。
+function Get-ShellFolder($name) {
+  $p = $null
+  try {
+    $sh = New-Object -ComObject Shell.Application
+    $p  = [string]$sh.NameSpace($name).Self.Path
+  } catch { $p = $null }
+  if (-not $p) {
+    try { $p = [string](New-Object -ComObject WScript.Shell).SpecialFolders($name) } catch { $p = $null }
+  }
+  if ($p -and (Test-Path -LiteralPath $p)) { return $p }
+  return $null
+}
+
+# 统一处理「有则改、无则建」，并容忍目录缺失
+function Install-Shortcut($dir, $name, $target, $icon) {
+  if (-not $dir) { return }
+  $lnk = Join-Path $dir "$name.lnk"
+  if (Test-Path -LiteralPath $lnk) { Update-Shortcut $lnk $target $icon }
+  else { Create-Shortcut $lnk $target $icon }
+}
+
 # ================= 主流程 =================
 Write-Host "============================================" -ForegroundColor DarkCyan
 Write-Host " Antigravity 黑屏修复 (自动走代理)" -ForegroundColor DarkCyan
@@ -166,19 +210,17 @@ if ($ProbeOnly) {
   exit 0
 }
 
-$launcher = New-Launcher $exeDir $port
+$launcher = New-Launcher $exe $port
 OK "已生成启动器: $launcher"
 
 # 快捷方式：桌面 + 开始菜单 + 任务栏(若存在)
-$desktop = [Environment]::GetFolderPath('Desktop')
-$startMenu = Join-Path $env:APPDATA 'Microsoft\Windows\Start Menu\Programs'
-$taskBar = Join-Path $env:APPDATA 'Microsoft\Internet Explorer\Quick Launch\User Pinned\TaskBar'
+$desktop   = Get-ShellFolder 'Desktop'
+$startMenu = if ($env:APPDATA) { Join-Path $env:APPDATA 'Microsoft\Windows\Start Menu\Programs' } else { $null }
+$taskBar   = if ($env:APPDATA) { Join-Path $env:APPDATA 'Microsoft\Internet Explorer\Quick Launch\User Pinned\TaskBar' } else { $null }
 
-if (Test-Path (Join-Path $desktop 'Antigravity.lnk')) { Update-Shortcut (Join-Path $desktop 'Antigravity.lnk') $launcher $icon }
-else { Create-Shortcut (Join-Path $desktop 'Antigravity.lnk') $launcher $icon }
-
-if (Test-Path (Join-Path $startMenu 'Antigravity.lnk')) { Update-Shortcut (Join-Path $startMenu 'Antigravity.lnk') $launcher $icon }
-else { Create-Shortcut (Join-Path $startMenu 'Antigravity.lnk') $launcher $icon }
+if (-not $desktop) { Warn "未能定位桌面目录，跳过桌面快捷方式（不影响启动器使用）。" }
+Install-Shortcut $desktop 'Antigravity' $launcher $icon
+Install-Shortcut $startMenu 'Antigravity' $launcher $icon
 
 Get-ChildItem -Path $taskBar -Filter '*ntigravity*.lnk' -ErrorAction SilentlyContinue | ForEach-Object { Update-Shortcut $_.FullName $launcher $icon }
 

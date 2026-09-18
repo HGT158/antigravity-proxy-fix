@@ -15,9 +15,10 @@ Antigravity 的语言服务器（一个 Go 编写的后端程序）**不读取 W
 
 ## 这个脚本做了什么
 
-1. **自动定位** `Antigravity.exe`（读注册表 + 常见安装目录扫描）；
+1. **自动定位** `Antigravity.exe`（读取注册表中的 `DisplayIcon` / `InstallLocation`，并扫描常见安装目录）；
 2. **自动探测**你的本地代理端口（先读系统代理设置，再用 `curl` 实测 7890 / 7897 / 7899 / 7891 / 10809 / 10808 / 10811 / 1080 / 8888 / 2080 等常见端口能否连到 Google，连不上就跳过继续试下一个）；
 3. 在 Antigravity 安装目录生成启动器 `launch-antigravity.bat`，启动时自动注入 `HTTP_PROXY / HTTPS_PROXY / ALL_PROXY = http://127.0.0.1:<端口>`；
+   （启动器里用 `%~dp0` 定位同目录的 `Antigravity.exe`，不写死绝对路径，因此**中文用户名 / 中文安装路径**都能正常工作）
 4. 把 **桌面** 与 **开始菜单** 的快捷方式都指向这个启动器；
 5. （可选）重启 Antigravity 完成修复。
 
@@ -76,6 +77,7 @@ powershell -ExecutionPolicy Bypass -File .\antigravity-proxy-fix.ps1 -SkipRelaun
 
 - 本脚本**只改动用户自己的目录**（Antigravity 安装目录内生成一个 `.bat`、桌面/开始菜单快捷方式），**不需要管理员权限**，不写系统级环境变量，不会影响其它程序。
 - 修改快捷方式前会自动跳过不存在的入口；**不会删除**任何原文件（脚本生成的 `launch-antigravity.bat` 是可选的，删掉它、把快捷方式指回 `Antigravity.exe` 即可还原）。
+- **中文用户名 / 中文路径已适配**：启动器用 `%~dp0` 定位 `Antigravity.exe`，不把含中文的绝对路径写进 `.bat`（Windows 的 `cmd.exe` 按代码页读批处理，中文字符可能变成 `?` 导致找不到程序）。注册表路径支持引号、图标索引和环境变量，目录扫描使用字面路径并只接受真实文件；桌面目录也改为向系统查询，兼容 OneDrive 重定向等情况。
 - 本脚本与 Google / Antigravity 官方无任何关联，仅供学习交流。
 
 ## 技术原理（简述）
@@ -108,6 +110,7 @@ antigravity-proxy-fix/
 ├── README.md                     # 本文档
 ├── antigravity-proxy-fix.ps1     # 主脚本（PowerShell，UTF-8 with BOM）
 ├── fix-antigravity.cmd           # 鼠标双击入口（包装调用主脚本）
+├── LICENSE                       # MIT 许可证
 └── release/                      # GitHub Releases 产物
     └── antigravity-proxy-fix.zip # 解压后双击 fix-antigravity.cmd 即可
 ```
