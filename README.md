@@ -1,6 +1,6 @@
 # Antigravity 黑屏修复（自动走代理）
 
-当前版本：`1.1.0`
+当前版本：`1.2.0`
 
 > 一键修复 Antigravity（Google Gemini 编码工具）启动后**窗口黑屏 / 空白**的问题。
 > 自动定位 Antigravity 安装位置、自动探测本地代理端口，生成走代理的启动器并把快捷方式指过去，之后双击图标即可正常打开。
@@ -26,22 +26,29 @@ Antigravity 的语言服务器（一个 Go 编写的后端程序）**不读取�
 
 ## 给普通用户：双击运行（推荐）
 
-在 [Releases](../../releases) 页面下载最新版 `antigravity-proxy-fix.zip`：
+在 [Releases](../../releases) 页面下载最新版 `antigravity-proxy-fix.zip`，解压后按平台进入对应子目录：
 
-1. 解压 zip（里面是 `fix-antigravity.cmd`、`antigravity-proxy-fix.ps1`、`VERSION`、本 README 和 LICENSE）；
-2. 双击 **`fix-antigravity.cmd`**；
-3. 按提示按任意键，脚本会自动定位 Antigravity、探测代理端口并完成修复。
+```
+antigravity-proxy-fix/
+├── README.md / VERSION / LICENSE
+├── windows/    # Windows 版（fix-antigravity.cmd + antigravity-proxy-fix.ps1）
+└── macos/      # macOS 版（fix-antigravity-mac.command + antigravity-proxy-fix.sh）
+```
 
-> 不要把 `.cmd` 和 `.ps1` 分开移动 —— `.cmd` 会调用同目录下的 `.ps1`，两者要放在一起。
+**Windows**：进入 `windows/` 目录，双击 **`fix-antigravity.cmd`**，按提示按任意键即可。
+
+**macOS**：见下方「macOS 用户」一节。
+
+> 同一目录里的入口脚本和主脚本要放在一起（`.cmd` 会调用同目录的 `.ps1`，`.command` 会调用同目录的 `.sh`），整个子目录一起移动即可。
 
 运行**前提**：Antigravity 已安装，且你的**代理客户端（如 Clash Verge / Clash / v2rayN 等）正在运行**。
 
 ## macOS 用户：终端运行
 
-Mac 上黑屏的根因和 Windows 完全一样，修复思路也一样。下载 zip（或克隆仓库）解压后，打开「终端」，`cd` 进入目录运行：
+Mac 上黑屏的根因和 Windows 完全一样，修复思路也一样。下载 zip 解压后，打开「终端」，`cd` 进入 `macos/` 目录（或克隆仓库后进入仓库根目录）运行：
 
 ```bash
-# 双击运行等价（推荐普通用户；也可在 Finder 里双击 .command 文件）
+# 双击运行等价（也可在 Finder 里双击 .command 文件）
 bash fix-antigravity-mac.command
 
 # 或直接运行主脚本
@@ -64,7 +71,7 @@ bash antigravity-proxy-fix.sh --skip-relaunch # 只生成包装 App + 替身，�
 ### macOS 常见问题
 
 - **“无法打开，因为无法验证开发者”**：右键该文件 →「打开」一次；或到 系统设置 → 隐私与安全性 → 点「仍要打开」。
-- **双击 `.command` 没反应 / 提示没有执行权限**：从 Windows 打包的 zip 会丢失可执行位，请用 `bash fix-antigravity-mac.command` 运行，或先执行 `chmod +x fix-antigravity-mac.command`。
+- **双击 `.command` 没反应 / 提示没有执行权限**：个别解压工具会丢掉可执行位，用 `bash fix-antigravity-mac.command` 运行，或先执行 `chmod +x fix-antigravity-mac.command`。
 - **想还原**：删掉 `~/Applications/Antigravity (Proxy).app` 和桌面上的替身，直接打开原 Antigravity 即可。
 - **更新后又黑屏**：和 Windows 版一样，重跑一次本脚本即可（它会重新探测端口、重新生成包装 App）。
 
@@ -72,16 +79,16 @@ bash antigravity-proxy-fix.sh --skip-relaunch # 只生成包装 App + 替身，�
 
 ```powershell
 # 自动探测 + 修复 + 重启（最常用）
-powershell -ExecutionPolicy Bypass -File .\antigravity-proxy-fix.ps1
+powershell -ExecutionPolicy Bypass -File .\windows\antigravity-proxy-fix.ps1
 
 # 明确指定代理端口（跳过自动探测）
-powershell -ExecutionPolicy Bypass -File .\antigravity-proxy-fix.ps1 -ProxyPort 7890
+powershell -ExecutionPolicy Bypass -File .\windows\antigravity-proxy-fix.ps1 -ProxyPort 7890
 
 # 只探测，不改动任何东西
-powershell -ExecutionPolicy Bypass -File .\antigravity-proxy-fix.ps1 -ProbeOnly
+powershell -ExecutionPolicy Bypass -File .\windows\antigravity-proxy-fix.ps1 -ProbeOnly
 
 # 只生成启动器和快捷方式，不重启 Antigravity
-powershell -ExecutionPolicy Bypass -File .\antigravity-proxy-fix.ps1 -SkipRelaunch
+powershell -ExecutionPolicy Bypass -File .\windows\antigravity-proxy-fix.ps1 -SkipRelaunch
 ```
 
 ### 参数说明
@@ -150,7 +157,7 @@ antigravity-proxy-fix/
 ├── LICENSE                       # MIT 许可证
 └── release/                      # GitHub Releases 产物
     └── antigravity-proxy-fix.zip # Windows：解压后双击 fix-antigravity.cmd
-                                  # macOS  ：解压后运行 bash fix-antigravity-mac.command
+                                  # macOS  ：解压后运行 bash macos/fix-antigravity-mac.command
 ```
 
 ## License

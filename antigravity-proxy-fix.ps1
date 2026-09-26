@@ -32,7 +32,7 @@ param(
   [switch]$ProbeOnly,
   [switch]$SkipRelaunch
 )
-$ScriptVersion = '1.1.0'
+$ScriptVersion = '1.2.0'
 $ErrorActionPreference = 'Stop'
 
 function Step($m){ Write-Host "[*] $m" -ForegroundColor Cyan }

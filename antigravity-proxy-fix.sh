@@ -20,7 +20,7 @@
 #    bash antigravity-proxy-fix.sh --skip-relaunch    # 不重启
 # ============================================================================
 
-ScriptVersion='1.1.0'
+ScriptVersion='1.2.0'
 SELF="$(basename "$0")"
 
 # 防止被 sh/dash 执行（脚本用到了 bash 特性，如 printf %q）
@@ -240,9 +240,8 @@ make_wrapper() {
 	<string>APPL</string>
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
-	<key>CFBundleShortVersionString</key>
-	<string>1.1.0</string>
 PLIST
+    printf '\t<key>CFBundleShortVersionString</key>\n\t<string>%s</string>\n' "$ScriptVersion"
     # 用 cat > 覆盖写，不删除重建整个 .app：已存在的替身(alias)按 inode 追踪，原地覆盖才不会失效
     [ -n "$ICON_FILE" ] && printf '\t<key>CFBundleIconFile</key>\n\t<string>%s</string>\n' "$ICON_FILE"
     cat <<'PLIST2'
