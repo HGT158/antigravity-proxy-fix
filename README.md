@@ -7,7 +7,7 @@
 
 ## 为什么会黑屏？
 
-Antigravity 的语言服务器（一个 Go 编写的后端程序）**不读取 Windows 的“系统代理”设置**，它只认 `HTTP_PROXY` / `HTTPS_PROXY` 环境变量。
+Antigravity 的语言服务器（一个 Go 编写的后端程序）**不读取“系统代理”设置**（Windows 注册表代理、macOS 系统代理都一样不读），它只认 `HTTP_PROXY` / `HTTPS_PROXY` 环境变量。Windows 和 macOS 上黑屏的根因与修法完全一致。
 
 如果你的网络无法直接访问 Google（需要代理才能上），就会出现这种情况：
 
@@ -36,7 +36,39 @@ Antigravity 的语言服务器（一个 Go 编写的后端程序）**不读取 W
 
 运行**前提**：Antigravity 已安装，且你的**代理客户端（如 Clash Verge / Clash / v2rayN 等）正在运行**。
 
-## 给高级用户：直接跑 PowerShell
+## macOS 用户：终端运行
+
+Mac 上黑屏的根因和 Windows 完全一样，修复思路也一样。下载 zip（或克隆仓库）解压后，打开「终端」，`cd` 进入目录运行：
+
+```bash
+# 双击运行等价（推荐普通用户；也可在 Finder 里双击 .command 文件）
+bash fix-antigravity-mac.command
+
+# 或直接运行主脚本
+bash antigravity-proxy-fix.sh                 # 自动探测 + 修复 + 重启
+bash antigravity-proxy-fix.sh --port 7890     # 明确指定端口
+bash antigravity-proxy-fix.sh --probe-only    # 只探测，不改动任何东西
+bash antigravity-proxy-fix.sh --skip-relaunch # 只生成包装 App + 替身，不重启
+```
+
+运行**前提**：Antigravity 已装在 `/Applications`（或 `~/Applications`），且代理客户端正在运行。
+
+### macOS 版做了什么
+
+1. **自动定位** `Antigravity.app`（依次查 `/Applications`、`~/Applications`，目录名模糊匹配，最后用 Spotlight 兜底）；
+2. **自动探测**本地代理端口：先读 macOS 系统代理（`scutil --proxy`），再逐一 `curl` 实测常见端口（Clash 系 7890/7897/7899/7891、Surge 6152/6153、v2rayN/sing-box 10809/10808/10811、老 ClashX 1087、Shadowsocks 1080 等），实测通到 Google 才算数；只开 SOCKS 的端口也能自动识别，并以 `socks5://` 方式注入；
+3. 在 `~/Applications` 生成**包装 App：`Antigravity (Proxy).app`**（对应 Windows 版的 `launch-antigravity.bat`）。双击它 = 带着 `HTTP_PROXY / HTTPS_PROXY / ALL_PROXY` 环境变量启动 Antigravity，环境变量只作用于 Antigravity 进程树，不污染系统、不影响其它 App；图标自动取自 Antigravity 本体；
+4. 在**桌面**创建指向包装 App 的替身（alias；若系统拒绝了 Finder 自动化权限，则自动退化为符号链接）；可以把包装 App 拖进 Dock 或启动台使用；
+5. （默认）结束 Antigravity 进程并经包装 App 重启，完成修复。
+
+### macOS 常见问题
+
+- **“无法打开，因为无法验证开发者”**：右键该文件 →「打开」一次；或到 系统设置 → 隐私与安全性 → 点「仍要打开」。
+- **双击 `.command` 没反应 / 提示没有执行权限**：从 Windows 打包的 zip 会丢失可执行位，请用 `bash fix-antigravity-mac.command` 运行，或先执行 `chmod +x fix-antigravity-mac.command`。
+- **想还原**：删掉 `~/Applications/Antigravity (Proxy).app` 和桌面上的替身，直接打开原 Antigravity 即可。
+- **更新后又黑屏**：和 Windows 版一样，重跑一次本脚本即可（它会重新探测端口、重新生成包装 App）。
+
+## 给高级用户：直接跑 PowerShell（Windows）
 
 ```powershell
 # 自动探测 + 修复 + 重启（最常用）
@@ -110,12 +142,15 @@ dial tcp 64.233.188.95:443: connectex: A connection attempt failed ...
 ```
 antigravity-proxy-fix/
 ├── README.md                     # 本文档
-├── antigravity-proxy-fix.ps1     # 主脚本（PowerShell，UTF-8 with BOM）
-├── fix-antigravity.cmd           # 鼠标双击入口（包装调用主脚本）
+├── antigravity-proxy-fix.ps1     # Windows 主脚本（PowerShell，UTF-8 with BOM）
+├── fix-antigravity.cmd           # Windows 双击入口（包装调用主脚本）
+├── antigravity-proxy-fix.sh      # macOS 主脚本（Bash，LF 换行）
+├── fix-antigravity-mac.command   # macOS 双击入口（在终端中运行主脚本）
 ├── VERSION                       # 当前版本号
 ├── LICENSE                       # MIT 许可证
 └── release/                      # GitHub Releases 产物
-    └── antigravity-proxy-fix.zip # 解压后双击 fix-antigravity.cmd 即可
+    └── antigravity-proxy-fix.zip # Windows：解压后双击 fix-antigravity.cmd
+                                  # macOS  ：解压后运行 bash fix-antigravity-mac.command
 ```
 
 ## License
