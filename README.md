@@ -1,9 +1,9 @@
 # Antigravity 黑屏修复（自动走代理）
 
-当前版本：`1.2.0`
+当前版本：`1.2.1`
 
 > 一键修复 Antigravity（Google Gemini 编码工具）启动后**窗口黑屏 / 空白**的问题。
-> 自动定位 Antigravity 安装位置、自动探测本地代理端口，生成走代理的启动器并把快捷方式指过去，之后双击图标即可正常打开。
+> 自动定位 Antigravity 安装位置、自动探测本地代理端口，生成可双击的代理启动入口。
 
 ## 为什么会黑屏？
 
@@ -15,18 +15,16 @@ Antigravity 的语言服务器（一个 Go 编写的后端程序）**不读取�
 - 连不上 → 它的内部登录页一直加载超时（日志里表现为 `ERR_TIMED_OUT`、`dial tcp ... connectex`）；
 - 结果就是：进程在跑、窗口标题在，但**页面黑屏 / 一片空白**。
 
-## 这个脚本做了什么
+## Windows 版做了什么
 
 1. **自动定位** `Antigravity.exe`（读取注册表中的 `DisplayIcon` / `InstallLocation`，并扫描常见安装目录）；
 2. **自动探测**你的本地代理端口（先读系统代理设置，再用 `curl` 实测 7890 / 7897 / 7899 / 7891 / 10809 / 10808 / 10811 / 1080 / 8888 / 2080 等常见端口能否连到 Google，连不上就跳过继续试下一个）；
-3. 在 Antigravity 安装目录生成启动器 `launch-antigravity.bat`，启动时自动注入 `HTTP_PROXY / HTTPS_PROXY / ALL_PROXY = http://127.0.0.1:<端口>`；
-   （启动器里用 `%~dp0` 定位同目录的 `Antigravity.exe`，不写死绝对路径，因此**中文用户名 / 中文安装路径**都能正常工作）
-4. 把 **桌面** 与 **开始菜单** 的快捷方式都指向这个启动器；
-5. （可选）重启 Antigravity 完成修复。
+3. 在 `fix-antigravity.cmd` 所在文件夹生成可双击的 `launch-antigravity.cmd` 和同目录的 `start-antigravity.ps1`，兼容中文路径和 `Program Files` 中的安装。脚本通过可见的控制台执行，遵循当前 PowerShell 执行策略，并只向 Antigravity 进程和它的子进程传入 `HTTP_PROXY`、`HTTPS_PROXY` 和 `ALL_PROXY`。
+4. 默认请求当前会话的 Antigravity 窗口正常退出，再带着代理环境变量启动。若旧实例仍在运行，脚本会提示完全退出后再双击 `launch-antigravity.cmd`。
 
 ## 给普通用户：双击运行（推荐）
 
-在 [Releases](../../releases) 页面下载最新版 `antigravity-proxy-fix.zip`，解压后按平台进入对应子目录：
+下载与当前源码对应的 [antigravity-proxy-fix.zip](release/antigravity-proxy-fix.zip)，或在 [Releases](../../releases) 选择已发布的版本。解压到当前用户可写的文件夹，然后按平台进入对应子目录：
 
 ```
 antigravity-proxy-fix/
@@ -35,7 +33,7 @@ antigravity-proxy-fix/
 └── macos/      # macOS 版（fix-antigravity-mac.command + antigravity-proxy-fix.sh）
 ```
 
-**Windows**：进入 `windows/` 目录，双击 **`fix-antigravity.cmd`**，按提示按任意键即可。
+**Windows**：进入 `windows/` 目录，以普通用户身份双击 **`fix-antigravity.cmd`**。从源码运行时，直接双击仓库根目录里的同名文件。按任意键开始配置，随后可双击脚本输出的 `launch-antigravity.cmd` 打开应用。Windows PowerShell 的执行策略须允许加载脚本。
 
 **macOS**：见下方「macOS 用户」一节。
 
@@ -64,7 +62,7 @@ bash antigravity-proxy-fix.sh --skip-relaunch # 只生成包装 App + 替身，�
 
 1. **自动定位** `Antigravity.app`（依次查 `/Applications`、`~/Applications`，目录名模糊匹配，最后用 Spotlight 兜底）；
 2. **自动探测**本地代理端口：先读 macOS 系统代理（`scutil --proxy`），再逐一 `curl` 实测常见端口（Clash 系 7890/7897/7899/7891、Surge 6152/6153、v2rayN/sing-box 10809/10808/10811、老 ClashX 1087、Shadowsocks 1080 等），实测通到 Google 才算数；只开 SOCKS 的端口也能自动识别，并以 `socks5://` 方式注入；
-3. 在 `~/Applications` 生成**包装 App：`Antigravity (Proxy).app`**（对应 Windows 版的 `launch-antigravity.bat`）。双击它 = 带着 `HTTP_PROXY / HTTPS_PROXY / ALL_PROXY` 环境变量启动 Antigravity，环境变量只作用于 Antigravity 进程树，不污染系统、不影响其它 App；图标自动取自 Antigravity 本体；
+3. 在 `~/Applications` 生成**包装 App：`Antigravity (Proxy).app`**。双击它会为 Antigravity 进程和子进程设置 `HTTP_PROXY / HTTPS_PROXY / ALL_PROXY`。图标自动取自 Antigravity 本体；
 4. 在**桌面**创建指向包装 App 的替身（alias；若系统拒绝了 Finder 自动化权限，则自动退化为符号链接）；可以把包装 App 拖进 Dock 或启动台使用；
 5. （默认）结束 Antigravity 进程并经包装 App 重启，完成修复。
 
@@ -79,47 +77,40 @@ bash antigravity-proxy-fix.sh --skip-relaunch # 只生成包装 App + 替身，�
 
 ```powershell
 # 自动探测 + 修复 + 重启（最常用）
-powershell -ExecutionPolicy Bypass -File .\windows\antigravity-proxy-fix.ps1
+powershell -NoProfile -File .\windows\antigravity-proxy-fix.ps1
 
 # 明确指定代理端口（跳过自动探测）
-powershell -ExecutionPolicy Bypass -File .\windows\antigravity-proxy-fix.ps1 -ProxyPort 7890
+powershell -NoProfile -File .\windows\antigravity-proxy-fix.ps1 -ProxyPort 7890
 
 # 只探测，不改动任何东西
-powershell -ExecutionPolicy Bypass -File .\windows\antigravity-proxy-fix.ps1 -ProbeOnly
+powershell -NoProfile -File .\windows\antigravity-proxy-fix.ps1 -ProbeOnly
 
-# 只生成启动器和快捷方式，不重启 Antigravity
-powershell -ExecutionPolicy Bypass -File .\windows\antigravity-proxy-fix.ps1 -SkipRelaunch
+# 只生成启动脚本，不重启 Antigravity
+powershell -NoProfile -File .\windows\antigravity-proxy-fix.ps1 -SkipRelaunch
 ```
 
 ### 参数说明
 
 | 参数 | 作用 |
 |------|------|
-| `-ProxyPort <端口>` | 手动指定代理端口，跳过自动探测 |
+| `-ProxyPort <端口>` | 手动指定 1 到 65535 之间的代理端口，跳过自动探测 |
 | `-ProbeOnly` | 只检测（Antigravity 位置 / 代理端口），不做任何修改 |
-| `-SkipRelaunch` | 只生成启动器 + 改快捷方式，不结束进程、不重启 |
+| `-SkipRelaunch` | 只生成启动脚本，适合 Antigravity 正在工作时使用 |
+
+### Windows 权限与启动排查
+
+- **旧版只有以管理员身份运行才有效**。旧版会在 Antigravity 安装目录写入批处理，`Program Files` 等位置通常限制普通用户写入。请将新版修复脚本放在当前用户可写的文件夹中，再双击 `fix-antigravity.cmd`。启动器会生成在同一个位置。[GitHub Issue #1](../../issues/1)
+- **提示旧实例仍在运行**。保存工作，通过 Antigravity 菜单完全退出，再双击 `launch-antigravity.cmd`。
+- **Windows 要求以管理员身份启动 `Antigravity.exe`**。检查应用的「属性 → 兼容性」，包括「更改所有用户的设置」。若此前手动勾选了「以管理员身份运行此程序」，取消勾选后重试。如果管理员权限由安装版本或组织策略要求，请联系管理员。
+- **旧的 `Antigravity (Proxy).lnk` 被隔离**。保留隔离状态，使用新版脚本在当前文件夹生成的 `launch-antigravity.cmd`。
+- **PowerShell 策略拒绝加载脚本**。请按设备的脚本执行要求使用受信任的版本。由组织管理的设备可联系管理员。
 
 ## 修复之后
 
-- **以后打开 Antigravity 只需两步**：① 代理客户端保持运行；② 双击桌面图标。
-- 不再需要为 Antigravity 手动开 TUN 模式 —— 它走的是 HTTP 代理，不依赖 TUN。
-- 系统代理开关对 Antigravity 无效（它不读），但请保留给浏览器等其它软件用。
+- 保持代理客户端运行，双击修复脚本旁的 `launch-antigravity.cmd` 打开应用。使用本地 HTTP 代理即可，TUN 模式可保持关闭。
+- 代理端口或 Antigravity 安装路径变更后，重新运行脚本即可更新启动器。
 
-## 又黑屏了？重跑一次脚本就行
-
-已经修复过、用了一段时间后又出现黑屏，基本都是这两种情况：
-
-1. **Antigravity 更新或重装**：自动更新会覆盖安装目录里的 `launch-antigravity.bat`，还可能把桌面 / 开始菜单的快捷方式重置回原始的 `Antigravity.exe`（不带代理环境变量），于是又恢复成裸连。
-2. **代理端口变了**：换了代理客户端、或改过端口设置，启动器里写死的旧端口就失效了。
-
-两种情况都不用排查，**双击 `fix-antigravity.cmd` 重跑一次本脚本即可**：它会重新探测当前可用的代理端口、重新生成启动器，并把快捷方式重新指过去。建议每次 Antigravity 更新之后都重跑一次。
-
-## 注意事项
-
-- 本脚本**只改动用户自己的目录**（Antigravity 安装目录内生成一个 `.bat`、桌面/开始菜单快捷方式），**不需要管理员权限**，不写系统级环境变量，不会影响其它程序。
-- 修改快捷方式前会自动跳过不存在的入口；**不会删除**任何原文件（脚本生成的 `launch-antigravity.bat` 是可选的，删掉它、把快捷方式指回 `Antigravity.exe` 即可还原）。
-- **中文用户名 / 中文路径已适配**：启动器用 `%~dp0` 定位 `Antigravity.exe`，不把含中文的绝对路径写进 `.bat`（Windows 的 `cmd.exe` 按代码页读批处理，中文字符可能变成 `?` 导致找不到程序）。注册表路径支持引号、图标索引和环境变量，目录扫描使用字面路径并只接受真实文件；桌面目录也改为向系统查询，兼容 OneDrive 重定向等情况。
-- 本脚本与 Google / Antigravity 官方无任何关联，仅供学习交流。
+要还原 Windows 的启动方式，可以直接打开原版 Antigravity，并移除生成的 `launch-antigravity.cmd` 和 `start-antigravity.ps1`。如果旧版更改过 `Antigravity` 快捷方式，可以用 `Antigravity.exe` 重新创建该快捷方式。
 
 ## 技术原理（简述）
 

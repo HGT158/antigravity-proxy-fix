@@ -1,12 +1,11 @@
 @echo off
 rem ============================================================
 rem  Antigravity Proxy Fixer - double-click launcher
-rem  Calls the main PowerShell script with execution policy bypass.
+rem  Calls Windows PowerShell using the current user's permissions.
 rem  Run with " -ProbeOnly" / " -SkipRelaunch" etc. to pass args:
 rem      fix-antigravity.cmd -ProbeOnly
 rem ============================================================
-setlocal
-cd /d "%~dp0"
+setlocal DisableDelayedExpansion
 
 echo.
 echo  ==================================================
@@ -22,16 +21,13 @@ pause >nul
 echo.
 echo  [*] Running fix script ...
 echo.
-powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0antigravity-proxy-fix.ps1" %*
-set RC=%ERRORLEVEL%
+"%SystemRoot%\System32\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -File "%~dp0antigravity-proxy-fix.ps1" %*
+set "RC=%ERRORLEVEL%"
 
 echo.
-if "%RC%"=="0" (
-  echo  [OK] Done. Now open Antigravity from the desktop icon.
-  echo       Keep the proxy client running whenever you use it.
-) else (
+if not "%RC%"=="0" (
   echo  [FAILED] Exit code %RC%. See messages above.
 )
 echo.
 pause
-endlocal
+endlocal & exit /b %RC%

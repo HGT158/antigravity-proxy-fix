@@ -20,7 +20,7 @@
 #    bash antigravity-proxy-fix.sh --skip-relaunch    # 不重启
 # ============================================================================
 
-ScriptVersion='1.2.0'
+ScriptVersion='1.2.1'
 SELF="$(basename "$0")"
 
 # 防止被 sh/dash 执行（脚本用到了 bash 特性，如 printf %q）
@@ -196,7 +196,7 @@ SYS
 }
 
 # ---------- 3) 生成包装 App 启动器 ----------
-# 对应 Windows 版的 launch-antigravity.bat。放在 ~/Applications（不在 Antigravity
+# 对应 Windows 版的 launch-antigravity.cmd。放在 ~/Applications（不在 Antigravity
 # 安装目录里），因此 Antigravity 自动更新不会覆盖它；端口和 App 路径固化在启动
 # 脚本里，端口变了 / 路径变了重跑本脚本即可。
 make_wrapper() {
